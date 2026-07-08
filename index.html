@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="今天吃什么">
+  <meta name="theme-color" content="#FF6B35">
+  <title>今天吃什么 🍳</title>
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23FF6B35'/><text x='50' y='65' text-anchor='middle' font-size='50'>🍳</text></svg>">
+  <link rel="manifest" href="data:application/json,{}">
+
+  <style>
+    :root {
+      --bg: #FFF8F0;
+      --card: #FFFFFF;
+      --primary: #FF6B35;
+      --primary-light: #FF8C5A;
+      --meat: #E74C3C;
+      --veggie: #27AE60;
+      --soup: #F39C12;
+      --staple: #8E6E3E;
+      --text: #2C3E50;
+      --text-light: #7F8C8D;
+      --border: #F0E6DC;
+      --shadow: 0 2px 16px rgba(0,0,0,0.06);
+      --radius: 16px;
+      --safe-bottom: env(safe-area-inset-bottom, 16px);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'PingFang SC', 'Helvetica Neue', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      min-height: -webkit-fill-available;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ── Header ── */
+    .header {
+      padding: 16px 20px;
+      text-align: center;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: linear-gradient(180deg, var(--bg) 60%, transparent);
+    }
+    .header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--primary);
+      letter-spacing: -0.3px;
+    }
+    .header .subtitle {
+      font-size: 12px;
+      color: var(--text-light);
+      margin-top: 2px;
+    }
+
+    /* ── Page Container ── */
+    .page { display: none; padding-bottom: calc(80px + var(--safe-bottom)); }
+    .page.active { display: block; animation: fadeIn 0.3s ease; }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes popIn { 0% { transform: scale(0.5); opacity: 0; } 60% { transform: scale(1.08); } 100% { transform: scale(1); opacity: 1; } }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    @keyframes bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+    @keyframes confetti {
+      0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(-200px) rotate(720deg); opacity: 0; }
+    }
+    @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(255,107,53,0.4); } 50% { box-shadow: 0 0 0 16px rgba(255,107,53,0); } }
+
+    /* ── Home Page (随机抽取) ── */
+    .pick-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px 20px 20px;
+      gap: 20px;
+    }
+
+    .pick-btn-wrap {
+      position: relative;
+      margin: 10px 0;
+    }
+    .pick-btn {
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      border: none;
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      color: white;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      cursor: pointer;
+      box-shadow: 0 8px 30px rgba(255,107,53,0.35);
+      transition: transform 0.2s, box-shadow 0.2s;
+      position: relative;
+      z-index: 1;
+    }
+    .pick-btn:active {
+      transform: scale(0.93);
+      box-shadow: 0 4px 15px rgba(255,107,53,0.25);
+    }
+    .pick-btn.picking {
+      animation: pulse 0.8s infinite;
+    }
+    .pick-btn .icon {
+      font-size: 42px;
+      display: block;
+      margin-bottom: 4px;
+    }
+    .pick-btn .label {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    /* ── Result Cards ── */
+    .result-cards {
+      width: 100%;
+      max-width: 400px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .result-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: all 0.3s;
+      border-left: 4px solid transparent;
+    }
+    .result-card.meat { border-left-color: var(--meat); }
+    .result-card.veggie { border-left-color: var(--veggie); }
+    .result-card.soup { border-left-color: var(--soup); }
+    .result-card.staple { border-left-color: var(--staple); }
+
+    .result-card .tag {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 20px;
+      white-space: nowrap;
+      letter-spacing: 0.5px;
+    }
+    .tag.meat { background: #FDEDEC; color: var(--meat); }
+    .tag.veggie { background: #E8F8F0; color: var(--veggie); }
+    .tag.soup { background: #FEF5E7; color: var(--soup); }
+    .tag.staple { background: #F4ECE0; color: var(--staple); }
+
+    .result-card .dish-name {
+      font-size: 17px;
+      font-weight: 600;
+      flex: 1;
+    }
+    .result-card .refresh-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: none;
+      background: #F5F5F5;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+      color: var(--text-light);
+    }
+    .result-card .refresh-icon:active {
+      background: #E8E8E8;
+    }
+
+    .empty-result {
+      text-align: center;
+      color: var(--text-light);
+      padding: 30px 0;
+      font-size: 15px;
+      line-height: 2;
+    }
+    .empty-result .big-emoji {
+      font-size: 56px;
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    /* ── Grocery List ── */
+    .grocery-section {
+      width: 100%;
+      max-width: 400px;
+      margin-top: 4px;
+    }
+    .grocery-section h3 {
+      font-size: 15px;
+      color: var(--text);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .grocery-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .grocery-tag {
+      font-size: 13px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      background: var(--card);
+      color: var(--text);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+      white-space: nowrap;
+    }
+    .grocery-tag.checked {
+      background: #E8F8F0;
+      color: var(--veggie);
+      text-decoration: line-through;
+    }
+
+    /* ── Pool Pages ── */
+    .pool-header {
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .pool-header h2 {
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .add-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: none;
+      background: var(--primary);
+      color: white;
+      font-size: 22px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 3px 12px rgba(255,107,53,0.25);
+      transition: transform 0.2s;
+    }
+    .add-btn:active { transform: scale(0.9); }
+
+    .pool-list {
+      padding: 0 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .pool-item {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+      transition: all 0.2s;
+    }
+    .pool-item:active { background: #FAFAFA; }
+    .pool-item .item-name {
+      font-size: 16px;
+      font-weight: 500;
+    }
+    .pool-item .item-info {
+      font-size: 11px;
+      color: var(--text-light);
+      margin-top: 2px;
+    }
+    .pool-item .actions {
+      display: flex;
+      gap: 4px;
+    }
+    .pool-item .actions button {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: none;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+    .btn-edit { background: #F0F0F0; color: var(--text); }
+    .btn-delete { background: #FDEDEC; color: var(--meat); }
+    .btn-edit:active { background: #E0E0E0; }
+    .btn-delete:active { background: #F5B7B1; }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 100;
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+    }
+    .modal-overlay.show { display: flex; }
+    .modal {
+      background: var(--card);
+      border-radius: 20px 20px 0 0;
+      width: 100%;
+      max-width: 480px;
+      padding: 24px 20px calc(20px + var(--safe-bottom));
+      animation: slideUp 0.3s ease;
+    }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+    .modal h3 {
+      font-size: 18px;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+    .modal input, .modal select {
+      width: 100%;
+      padding: 12px 14px;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      font-size: 16px;
+      font-family: inherit;
+      margin-bottom: 12px;
+      outline: none;
+      transition: border-color 0.2s;
+      background: #FAFAFA;
+    }
+    .modal input:focus, .modal select:focus {
+      border-color: var(--primary);
+      background: white;
+    }
+    .modal .btn-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 4px;
+    }
+    .modal .btn-row button {
+      flex: 1;
+      padding: 12px;
+      border-radius: 12px;
+      border: none;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+    .btn-primary:active { background: #E55A2B; }
+    .btn-cancel {
+      background: #F0F0F0;
+      color: var(--text);
+    }
+    .btn-cancel:active { background: #E0E0E0; }
+    .btn-danger {
+      background: var(--meat);
+      color: white;
+    }
+    .btn-danger:active { background: #C0392B; }
+
+    /* ── Bottom Nav ── */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-top: 1px solid var(--border);
+      display: flex;
+      padding: 6px 8px var(--safe-bottom);
+      z-index: 50;
+    }
+    .nav-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      padding: 6px 4px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      color: var(--text-light);
+      font-size: 10px;
+      font-family: inherit;
+      transition: color 0.2s;
+      border-radius: 10px;
+    }
+    .nav-item .nav-icon { font-size: 22px; }
+    .nav-item.active { color: var(--primary); }
+    .nav-item:active { background: rgba(0,0,0,0.03); }
+
+    /* ── Settings Page ── */
+    .settings-section {
+      padding: 0 20px;
+      margin-bottom: 24px;
+    }
+    .settings-section h3 {
+      font-size: 15px;
+      color: var(--text);
+      margin-bottom: 10px;
+    }
+    .setting-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+    }
+    .setting-row + .setting-row {
+      border-top: 1px solid var(--border);
+    }
+    .setting-row .label {
+      font-size: 15px;
+      font-weight: 500;
+    }
+    .setting-row .sub {
+      font-size: 12px;
+      color: var(--text-light);
+    }
+    .toggle {
+      width: 52px;
+      height: 30px;
+      border-radius: 15px;
+      border: none;
+      background: #DDD;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.25s;
+    }
+    .toggle.on { background: var(--primary); }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      background: white;
+      top: 2px; left: 2px;
+      transition: transform 0.25s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    }
+    .toggle.on::after { transform: translateX(22px); }
+
+    .reset-btn {
+      width: 100%;
+      padding: 14px;
+      border: 2px solid var(--meat);
+      border-radius: 14px;
+      background: white;
+      color: var(--meat);
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+      margin-top: 8px;
+    }
+    .reset-btn:active { background: #FDEDEC; }
+
+    .share-section {
+      padding: 0 20px;
+      text-align: center;
+      color: var(--text-light);
+      font-size: 12px;
+      margin-bottom: 20px;
+      line-height: 1.8;
+    }
+
+    /* ── Confetti ── */
+    .confetti-piece {
+      position: fixed;
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+      z-index: 200;
+      pointer-events: none;
+      animation: confetti-fall 0.8s ease-out forwards;
+    }
+    @keyframes confetti-fall {
+      0% { transform: translateY(0) rotate(0deg) scale(1); opacity: 1; }
+      100% { transform: translateY(-180px) rotate(540deg) scale(0); opacity: 0; }
+    }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #333;
+      color: white;
+      padding: 10px 24px;
+      border-radius: 20px;
+      font-size: 14px;
+      z-index: 300;
+      animation: toastIn 0.3s ease, toastOut 0.3s ease 1.7s forwards;
+      pointer-events: none;
+    }
+    @keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(-10px); } }
+    @keyframes toastOut { to { opacity: 0; transform: translateX(-50%) translateY(-10px); } }
+
+    /* ── Slot machine effect ── */
+    .slot-container {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 6px 18px;
+      box-shadow: var(--shadow);
+      text-align: center;
+      max-width: 400px;
+      width: 100%;
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .slot-text {
+      font-size: 17px;
+      font-weight: 600;
+      transition: none;
+    }
+    .slot-text.rolling {
+      color: var(--primary);
+      animation: slotBlur 0.08s infinite;
+    }
+    @keyframes slotBlur {
+      0%, 100% { opacity: 0.6; transform: translateY(-2px); }
+      50% { opacity: 1; transform: translateY(2px); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ════════════ HEADER ════════════ -->
+  <div class="header">
+    <h1>🍳 今天吃什么</h1>
+    <div class="subtitle">荤素搭配 · 营养美味</div>
+  </div>
+
+  <!-- ════════════ PAGE: 随机抽取 ════════════ -->
+  <div class="page active" id="page-home">
+    <div class="pick-area">
+      <div class="pick-btn-wrap">
+        <button class="pick-btn" id="pickBtn" onclick="pickAll()">
+          <span class="icon">🎲</span>
+          <span class="label">随机抽取</span>
+        </button>
+      </div>
+
+      <div class="slot-container" id="slotMachine" style="display:none;">
+        <span class="slot-text" id="slotText"></span>
+      </div>
+
+      <div class="result-cards" id="resultCards">
+        <div class="empty-result">
+          <span class="big-emoji">👆</span>
+          点击上方按钮<br>随机抽取今日菜单
+        </div>
+      </div>
+
+      <div class="grocery-section" id="grocerySection" style="display:none;">
+        <h3>🛒 需要买的菜</h3>
+        <div class="grocery-tags" id="groceryTags"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════ PAGE: 荤菜池 ════════════ -->
+  <div class="page" id="page-meat">
+    <div class="pool-header">
+      <h2>🥩 荤菜池</h2>
+      <button class="add-btn" onclick="openModal('meat')">+</button>
+    </div>
+    <div class="pool-list" id="pool-meat"></div>
+  </div>
+
+  <!-- ════════════ PAGE: 素菜池 ════════════ -->
+  <div class="page" id="page-veggie">
+    <div class="pool-header">
+      <h2>🥬 素菜池</h2>
+      <button class="add-btn" onclick="openModal('veggie')">+</button>
+    </div>
+    <div class="pool-list" id="pool-veggie"></div>
+  </div>
+
+  <!-- ════════════ PAGE: 汤品池 ════════════ -->
+  <div class="page" id="page-soup">
+    <div class="pool-header">
+      <h2>🍲 汤品池</h2>
+      <button class="add-btn" onclick="openModal('soup')">+</button>
+    </div>
+    <div class="pool-list" id="pool-soup"></div>
+  </div>
+
+  <!-- ════════════ PAGE: 主食池 ════════════ -->
+  <div class="page" id="page-staple">
+    <div class="pool-header">
+      <h2>🍚 主食池</h2>
+      <button class="add-btn" onclick="openModal('staple')">+</button>
+    </div>
+    <div class="pool-list" id="pool-staple"></div>
+  </div>
+
+  <!-- ════════════ PAGE: 设置 ════════════ -->
+  <div class="page" id="page-settings">
+    <div class="settings-section">
+      <h3>⚙️ 抽取设置</h3>
+      <div class="setting-card">
+        <div class="setting-row">
+          <div>
+            <div class="label">荤菜</div>
+            <div class="sub">每日随机抽取荤菜</div>
+          </div>
+          <button class="toggle on" id="toggle-meat" onclick="togglePool('meat')"></button>
+        </div>
+        <div class="setting-row">
+          <div>
+            <div class="label">素菜</div>
+            <div class="sub">每日随机抽取素菜</div>
+          </div>
+          <button class="toggle on" id="toggle-veggie" onclick="togglePool('veggie')"></button>
+        </div>
+        <div class="setting-row">
+          <div>
+            <div class="label">汤品</div>
+            <div class="sub">每日随机抽取汤品</div>
+          </div>
+          <button class="toggle on" id="toggle-soup" onclick="togglePool('soup')"></button>
+        </div>
+        <div class="setting-row">
+          <div>
+            <div class="label">主食</div>
+            <div class="sub">每日随机抽取主食</div>
+          </div>
+          <button class="toggle on" id="toggle-staple" onclick="togglePool('staple')"></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>💾 数据管理</h3>
+      <button class="reset-btn" onclick="resetAll()">🔄 恢复默认底池</button>
+    </div>
+
+    <div class="share-section">
+      💡 提示：在 Safari 中打开，点击「分享」→「添加到主屏幕」<br>
+      即可像 App 一样使用，支持离线！
+    </div>
+  </div>
+
+  <!-- ════════════ BOTTOM NAV ════════════ -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" data-page="home" onclick="switchPage('home')">
+      <span class="nav-icon">🎲</span> 随机抽
+    </button>
+    <button class="nav-item" data-page="meat" onclick="switchPage('meat')">
+      <span class="nav-icon">🥩</span> 荤菜
+    </button>
+    <button class="nav-item" data-page="veggie" onclick="switchPage('veggie')">
+      <span class="nav-icon">🥬</span> 素菜
+    </button>
+    <button class="nav-item" data-page="soup" onclick="switchPage('soup')">
+      <span class="nav-icon">🍲</span> 汤品
+    </button>
+    <button class="nav-item" data-page="staple" onclick="switchPage('staple')">
+      <span class="nav-icon">🍚</span> 主食
+    </button>
+    <button class="nav-item" data-page="settings" onclick="switchPage('settings')">
+      <span class="nav-icon">⚙️</span> 设置
+    </button>
+  </nav>
+
+  <!-- ════════════ MODAL ════════════ -->
+  <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+    <div class="modal" id="modal" onclick="event.stopPropagation()">
+      <h3 id="modalTitle">添加菜品</h3>
+      <input type="text" id="modalName" placeholder="菜品名称" autocomplete="off">
+      <input type="text" id="modalIngredients" placeholder="主要食材（用逗号分隔，如：猪肉,青椒）" autocomplete="off">
+      <select id="modalCategory" style="display:none;">
+        <option value="meat">荤菜</option>
+        <option value="veggie">素菜</option>
+        <option value="soup">汤品</option>
+        <option value="staple">主食</option>
+      </select>
+      <div class="btn-row">
+        <button class="btn-cancel" onclick="closeModal()">取消</button>
+        <button class="btn-primary" id="modalSaveBtn" onclick="saveItem()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ═══════════════════════════════════════════
+    //  DATA MODEL
+    // ═══════════════════════════════════════════
+    const DEFAULTS = {
+      meat: [
+        { name: '红烧肉', ingredients: ['五花肉', '冰糖', '老抽', '姜'] },
+        { name: '糖醋排骨', ingredients: ['排骨', '醋', '糖', '料酒'] },
+        { name: '宫保鸡丁', ingredients: ['鸡胸肉', '花生', '干辣椒', '黄瓜'] },
+        { name: '鱼香肉丝', ingredients: ['猪里脊', '木耳', '胡萝卜', '豆瓣酱'] },
+        { name: '回锅肉', ingredients: ['五花肉', '蒜苗', '豆瓣酱', '豆豉'] },
+        { name: '可乐鸡翅', ingredients: ['鸡翅', '可乐', '姜', '料酒'] },
+        { name: '番茄牛腩', ingredients: ['牛腩', '番茄', '洋葱', '胡萝卜'] },
+        { name: '青椒肉丝', ingredients: ['猪里脊', '青椒', '姜', '蒜'] },
+        { name: '水煮肉片', ingredients: ['猪里脊', '豆芽', '干辣椒', '花椒'] },
+        { name: '葱爆羊肉', ingredients: ['羊肉片', '大葱', '姜', '孜然'] },
+        { name: '蒜蓉大虾', ingredients: ['大虾', '蒜', '葱', '料酒'] },
+        { name: '红烧鲫鱼', ingredients: ['鲫鱼', '姜', '蒜', '酱油'] },
+        { name: '啤酒鸭', ingredients: ['鸭肉', '啤酒', '干辣椒', '八角'] },
+        { name: '小炒黄牛肉', ingredients: ['牛肉', '青红椒', '蒜', '生抽'] },
+        { name: '卤鸡腿', ingredients: ['鸡腿', '卤料包', '姜', '老抽'] },
+      ],
+      veggie: [
+        { name: '蒜蓉西兰花', ingredients: ['西兰花', '蒜', '蚝油'] },
+        { name: '番茄炒蛋', ingredients: ['番茄', '鸡蛋', '葱', '糖'] },
+        { name: '地三鲜', ingredients: ['土豆', '茄子', '青椒', '蒜'] },
+        { name: '麻婆豆腐', ingredients: ['豆腐', '肉末', '豆瓣酱', '花椒'] },
+        { name: '干煸四季豆', ingredients: ['四季豆', '干辣椒', '花椒', '蒜'] },
+        { name: '醋溜白菜', ingredients: ['大白菜', '醋', '干辣椒', '蒜'] },
+        { name: '蚝油生菜', ingredients: ['生菜', '蚝油', '蒜'] },
+        { name: '酸辣土豆丝', ingredients: ['土豆', '干辣椒', '醋', '花椒'] },
+        { name: '凉拌黄瓜', ingredients: ['黄瓜', '蒜', '醋', '香油'] },
+        { name: '蒜蓉空心菜', ingredients: ['空心菜', '蒜', '蚝油'] },
+        { name: '香菇青菜', ingredients: ['上海青', '香菇', '蒜', '蚝油'] },
+        { name: '红烧茄子', ingredients: ['茄子', '蒜', '生抽', '糖'] },
+        { name: '白灼秋葵', ingredients: ['秋葵', '蒜', '生抽', '芥末'] },
+        { name: '清炒豆芽', ingredients: ['豆芽', '韭菜', '醋', '干辣椒'] },
+        { name: '西芹炒木耳', ingredients: ['西芹', '木耳', '胡萝卜', '蒜'] },
+      ],
+      soup: [
+        { name: '紫菜蛋花汤', ingredients: ['紫菜', '鸡蛋', '虾皮', '葱'] },
+        { name: '番茄蛋花汤', ingredients: ['番茄', '鸡蛋', '葱', '香油'] },
+        { name: '冬瓜排骨汤', ingredients: ['冬瓜', '排骨', '枸杞', '姜'] },
+        { name: '玉米排骨汤', ingredients: ['玉米', '排骨', '胡萝卜', '姜'] },
+        { name: '酸辣汤', ingredients: ['豆腐', '鸡蛋', '木耳', '醋'] },
+        { name: '豆腐青菜汤', ingredients: ['嫩豆腐', '小白菜', '姜', '盐'] },
+        { name: '菌菇汤', ingredients: ['各种菌菇', '枸杞', '姜', '盐'] },
+        { name: '萝卜排骨汤', ingredients: ['白萝卜', '排骨', '枸杞', '姜'] },
+        { name: '西红柿牛腩汤', ingredients: ['西红柿', '牛腩', '土豆', '洋葱'] },
+        { name: '海带豆腐汤', ingredients: ['海带', '豆腐', '葱', '姜'] },
+      ],
+      staple: [
+        { name: '白米饭', ingredients: ['大米'] },
+        { name: '馒头', ingredients: ['面粉', '酵母'] },
+        { name: '花卷', ingredients: ['面粉', '酵母', '葱'] },
+        { name: '葱油拌面', ingredients: ['面条', '葱', '生抽', '油'] },
+        { name: '蛋炒饭', ingredients: ['米饭', '鸡蛋', '火腿', '葱'] },
+        { name: '肉包子', ingredients: ['面粉', '猪肉', '酵母', '葱姜'] },
+        { name: '饺子', ingredients: ['面粉', '猪肉', '白菜', '姜'] },
+        { name: '葱油饼', ingredients: ['面粉', '葱', '油', '盐'] },
+        { name: '小米粥', ingredients: ['小米', '枸杞'] },
+        { name: '蒸红薯', ingredients: ['红薯'] },
+      ],
+      settings: {
+        enabled: { meat: true, veggie: true, soup: true, staple: true },
+      }
+    };
+
+    const POOL_KEYS = ['meat', 'veggie', 'soup', 'staple'];
+    const POOL_LABELS = { meat: '荤菜', veggie: '素菜', soup: '汤品', staple: '主食' };
+    const POOL_EMOJIS = { meat: '🥩', veggie: '🥬', soup: '🍲', staple: '🍚' };
+    const POOL_CSS = { meat: 'meat', veggie: 'veggie', soup: 'soup', staple: 'staple' };
+
+    let modalMode = 'add'; // 'add' | 'edit'
+    let modalPool = '';
+    let modalEditIndex = -1;
+
+    // ═══════════════════════════════════════════
+    //  STORAGE
+    // ═══════════════════════════════════════════
+    function loadData() {
+      try {
+        const raw = localStorage.getItem('mealPickerData');
+        if (raw) return JSON.parse(raw);
+      } catch(e) {}
+      return JSON.parse(JSON.stringify(DEFAULTS));
+    }
+
+    function saveData(data) {
+      localStorage.setItem('mealPickerData', JSON.stringify(data));
+    }
+
+    let appData = loadData();
+
+    // ═══════════════════════════════════════════
+    //  PAGE NAVIGATION
+    // ═══════════════════════════════════════════
+    function switchPage(name) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.getElementById('page-' + name).classList.add('active');
+      document.querySelector('.nav-item[data-page="' + name + '"]').classList.add('active');
+      
+      if (POOL_KEYS.includes(name)) renderPool(name);
+    }
+
+    // ═══════════════════════════════════════════
+    //  RENDER POOLS
+    // ═══════════════════════════════════════════
+    function renderPool(key) {
+      const container = document.getElementById('pool-' + key);
+      const items = appData[key];
+      
+      if (items.length === 0) {
+        container.innerHTML = '<div class="empty-result" style="padding:40px 0;"><span class="big-emoji">📭</span>还没有菜品<br>点击右上角 + 添加吧</div>';
+        return;
+      }
+
+      container.innerHTML = items.map((item, i) => `
+        <div class="pool-item">
+          <div>
+            <div class="item-name">${escapeHtml(item.name)}</div>
+            ${item.ingredients && item.ingredients.length ? `<div class="item-info">食材：${escapeHtml(item.ingredients.join('、'))}</div>` : ''}
+          </div>
+          <div class="actions">
+            <button class="btn-edit" onclick="openEditModal('${key}', ${i})" title="编辑">✏️</button>
+            <button class="btn-delete" onclick="deleteItem('${key}', ${i})" title="删除">🗑</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    // ═══════════════════════════════════════════
+    //  MODAL
+    // ═══════════════════════════════════════════
+    function openModal(pool) {
+      modalMode = 'add';
+      modalPool = pool;
+      modalEditIndex = -1;
+      document.getElementById('modalTitle').textContent = '添加' + POOL_LABELS[pool];
+      document.getElementById('modalName').value = '';
+      document.getElementById('modalIngredients').value = '';
+      document.getElementById('modalSaveBtn').textContent = '添加';
+      document.getElementById('modalOverlay').classList.add('show');
+      setTimeout(() => document.getElementById('modalName').focus(), 350);
+    }
+
+    function openEditModal(pool, index) {
+      modalMode = 'edit';
+      modalPool = pool;
+      modalEditIndex = index;
+      const item = appData[pool][index];
+      document.getElementById('modalTitle').textContent = '编辑' + POOL_LABELS[pool];
+      document.getElementById('modalName').value = item.name;
+      document.getElementById('modalIngredients').value = (item.ingredients || []).join('、');
+      document.getElementById('modalSaveBtn').textContent = '保存';
+      document.getElementById('modalOverlay').classList.add('show');
+      setTimeout(() => document.getElementById('modalName').focus(), 350);
+    }
+
+    function closeModal(e) {
+      if (e && e.target !== document.getElementById('modalOverlay')) return;
+      document.getElementById('modalOverlay').classList.remove('show');
+    }
+
+    function saveItem() {
+      const name = document.getElementById('modalName').value.trim();
+      const ingredientsStr = document.getElementById('modalIngredients').value.trim();
+      
+      if (!name) {
+        showToast('请输入菜品名称');
+        return;
+      }
+
+      const ingredients = ingredientsStr ? ingredientsStr.split(/[,，、]/).map(s => s.trim()).filter(Boolean) : [];
+
+      if (modalMode === 'add') {
+        appData[modalPool].push({ name, ingredients });
+      } else {
+        appData[modalPool][modalEditIndex] = { name, ingredients };
+      }
+
+      saveData(appData);
+      renderPool(modalPool);
+      document.getElementById('modalOverlay').classList.remove('show');
+      showToast(modalMode === 'add' ? '已添加 ✅' : '已保存 ✅');
+      
+      // Refresh home if showing
+      if (document.getElementById('page-home').classList.contains('active')) {
+        // Don't auto-refresh result, let user pick again
+      }
+    }
+
+    function deleteItem(pool, index) {
+      if (!confirm(`确定要删除「${appData[pool][index].name}」吗？`)) return;
+      appData[pool].splice(index, 1);
+      saveData(appData);
+      renderPool(pool);
+      showToast('已删除');
+    }
+
+    // ═══════════════════════════════════════════
+    //  RANDOM PICK
+    // ═══════════════════════════════════════════
+    function randomPick(poolKey) {
+      const items = appData[poolKey];
+      if (!items || items.length === 0) return null;
+      const idx = Math.floor(Math.random() * items.length);
+      return items[idx];
+    }
+
+    function pickAll() {
+      const btn = document.getElementById('pickBtn');
+      const slotMachine = document.getElementById('slotMachine');
+      const slotText = document.getElementById('slotText');
+      const resultCards = document.getElementById('resultCards');
+      const grocerySection = document.getElementById('grocerySection');
+
+      btn.classList.add('picking');
+      btn.querySelector('.icon').textContent = '🎰';
+      
+      // Slot machine effect
+      slotMachine.style.display = 'block';
+      slotText.classList.add('rolling');
+
+      const enabledPools = POOL_KEYS.filter(k => appData.settings.enabled[k] && appData[k].length > 0);
+      
+      if (enabledPools.length === 0) {
+        slotText.textContent = '请先添加菜品到池子里哦~';
+        slotText.classList.remove('rolling');
+        btn.classList.remove('picking');
+        btn.querySelector('.icon').textContent = '🎲';
+        setTimeout(() => { slotMachine.style.display = 'none'; }, 1500);
+        return;
+      }
+
+      // Rolling animation with different names
+      let rollCount = 0;
+      const maxRolls = 14;
+      const allNames = [];
+      enabledPools.forEach(k => appData[k].forEach(item => allNames.push(item.name)));
+      
+      const rollInterval = setInterval(() => {
+        const randName = allNames[Math.floor(Math.random() * allNames.length)];
+        slotText.textContent = randName;
+        rollCount++;
+        if (rollCount >= maxRolls) {
+          clearInterval(rollInterval);
+          slotText.classList.remove('rolling');
+          
+          // Final picks
+          const results = [];
+          enabledPools.forEach(k => {
+            const picked = randomPick(k);
+            if (picked) results.push({ pool: k, item: picked });
+          });
+
+          slotText.textContent = results.map(r => r.item.name).join(' + ');
+          
+          setTimeout(() => {
+            slotMachine.style.display = 'none';
+            showResults(results);
+            btn.classList.remove('picking');
+            btn.querySelector('.icon').textContent = '🎲';
+            launchConfetti();
+          }, 800);
+        }
+      }, 100);
+    }
+
+    function repickSingle(poolKey) {
+      const resultCards = document.getElementById('resultCards');
+      const currentCards = resultCards.querySelectorAll('.result-card');
+      let results = [];
+      
+      currentCards.forEach(card => {
+        const pool = card.dataset.pool;
+        if (pool === poolKey) {
+          const newItem = randomPick(poolKey);
+          if (newItem) results.push({ pool, item: newItem });
+          else results.push({ pool, item: { name: card.querySelector('.dish-name').textContent, ingredients: [] } });
+        } else {
+          results.push({
+            pool,
+            item: {
+              name: card.querySelector('.dish-name').textContent,
+              ingredients: []
+            }
+          });
+        }
+      });
+      
+      showResults(results);
+      showToast('已重新抽取' + POOL_LABELS[poolKey] + ' 🔄');
+    }
+
+    function showResults(results) {
+      const resultCards = document.getElementById('resultCards');
+      const grocerySection = document.getElementById('grocerySection');
+      const groceryTags = document.getElementById('groceryTags');
+
+      if (results.length === 0) {
+        resultCards.innerHTML = '<div class="empty-result"><span class="big-emoji">😅</span>还没有菜品<br>去设置里添加吧</div>';
+        grocerySection.style.display = 'none';
+        return;
+      }
+
+      resultCards.innerHTML = results.map(r => `
+        <div class="result-card ${POOL_CSS[r.pool]}" data-pool="${r.pool}" style="animation: popIn 0.4s ease;">
+          <span class="tag ${POOL_CSS[r.pool]}">${POOL_LABELS[r.pool]}</span>
+          <span class="dish-name">${escapeHtml(r.item.name)}</span>
+          <button class="refresh-icon" onclick="repickSingle('${r.pool}')" title="换一个">🔄</button>
+        </div>
+      `).join('');
+
+      // Build grocery list
+      const allIngredients = [];
+      results.forEach(r => {
+        if (r.item.ingredients && r.item.ingredients.length) {
+          r.item.ingredients.forEach(ing => {
+            if (!allIngredients.includes(ing)) allIngredients.push(ing);
+          });
+        }
+      });
+
+      if (allIngredients.length > 0) {
+        grocerySection.style.display = 'block';
+        groceryTags.innerHTML = allIngredients.map(ing => 
+          `<span class="grocery-tag" onclick="this.classList.toggle('checked')">${escapeHtml(ing)}</span>`
+        ).join('');
+      } else {
+        grocerySection.style.display = 'none';
+      }
+    }
+
+    // ═══════════════════════════════════════════
+    //  SETTINGS
+    // ═══════════════════════════════════════════
+    function togglePool(key) {
+      appData.settings.enabled[key] = !appData.settings.enabled[key];
+      saveData(appData);
+      document.getElementById('toggle-' + key).classList.toggle('on', appData.settings.enabled[key]);
+    }
+
+    function resetAll() {
+      if (!confirm('确定要恢复默认底池吗？你自定义的菜品将被覆盖。')) return;
+      appData = JSON.parse(JSON.stringify(DEFAULTS));
+      saveData(appData);
+      document.getElementById('resultCards').innerHTML = `
+        <div class="empty-result">
+          <span class="big-emoji">👆</span>
+          点击上方按钮<br>随机抽取今日菜单
+        </div>`;
+      document.getElementById('grocerySection').style.display = 'none';
+      POOL_KEYS.forEach(k => {
+        document.getElementById('toggle-' + k).classList.add('on');
+        renderPool(k);
+      });
+      showToast('已恢复默认底池 ✅');
+    }
+
+    // ═══════════════════════════════════════════
+    //  CONFETTI
+    // ═══════════════════════════════════════════
+    function launchConfetti() {
+      const colors = ['#FF6B35', '#E74C3C', '#27AE60', '#F39C12', '#3498DB', '#9B59B6', '#1ABC9C', '#FFB830'];
+      for (let i = 0; i < 30; i++) {
+        const piece = document.createElement('div');
+        piece.className = 'confetti-piece';
+        piece.style.left = Math.random() * 100 + '%';
+        piece.style.top = (60 + Math.random() * 30) + '%';
+        piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+        piece.style.width = (6 + Math.random() * 10) + 'px';
+        piece.style.height = (6 + Math.random() * 10) + 'px';
+        piece.style.animationDelay = Math.random() * 0.3 + 's';
+        piece.style.animationDuration = (0.6 + Math.random() * 0.6) + 's';
+        document.body.appendChild(piece);
+        setTimeout(() => piece.remove(), 1200);
+      }
+    }
+
+    // ═══════════════════════════════════════════
+    //  TOAST
+    // ═══════════════════════════════════════════
+    function showToast(msg) {
+      const existing = document.querySelector('.toast');
+      if (existing) existing.remove();
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.textContent = msg;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2200);
+    }
+
+    // ═══════════════════════════════════════════
+    //  KEYBOARD
+    // ═══════════════════════════════════════════
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && document.getElementById('modalOverlay').classList.contains('show')) {
+        saveItem();
+      }
+      if (e.key === 'Escape') {
+        document.getElementById('modalOverlay').classList.remove('show');
+      }
+    });
+
+    // ═══════════════════════════════════════════
+    //  INIT
+    // ═══════════════════════════════════════════
+    function init() {
+      // Init settings toggles
+      POOL_KEYS.forEach(k => {
+        document.getElementById('toggle-' + k).classList.toggle('on', appData.settings.enabled[k]);
+      });
+      
+      // Render initial pool lists
+      POOL_KEYS.forEach(k => renderPool(k));
+    }
+
+    // ── Service Worker Registration ──
+    if ('serviceWorker' in navigator) {
+      // Create inline service worker
+      const swCode = `
+        const CACHE = 'meal-picker-v1';
+        const URLS = [self.location.href.replace('sw.js','')];
+
+        self.addEventListener('install', e => {
+          e.waitUntil(
+            caches.open(CACHE).then(c => c.addAll(URLS).catch(() => {}))
+          );
+          self.skipWaiting();
+        });
+
+        self.addEventListener('activate', e => {
+          e.waitUntil(
+            caches.keys().then(keys => 
+              Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+            )
+          );
+          self.clients.claim();
+        });
+
+        self.addEventListener('fetch', e => {
+          if (e.request.method !== 'GET') return;
+          e.respondWith(
+            caches.match(e.request).then(cached =>
+              cached || fetch(e.request).then(resp => {
+                if (resp.ok) {
+                  const clone = resp.clone();
+                  caches.open(CACHE).then(c => c.put(e.request, clone));
+                }
+                return resp;
+              }).catch(() => cached || new Response('Offline'))
+            )
+          );
+        });
+      `;
+      
+      const swBlob = new Blob([swCode], { type: 'application/javascript' });
+      const swUrl = URL.createObjectURL(swBlob);
+      navigator.serviceWorker.register(swUrl).catch(() => {});
+    }
+
+    init();
+  </script>
+</body>
+</html>
